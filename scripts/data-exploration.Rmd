@@ -38,85 +38,47 @@ images <- paste0("../data/images/",images, ".jpg")
 
 library(imager)
 photos <- lapply(images, load.image)
-dim(photos[[1]]) #3 channels RGB #60 80 1 3
+dim(photos[[1]]) #3 channels RGB #60h 80w 1d 3channels
+
 summary(photos[[50]]) #not 8 bit pixelated, scale is 0 to 1
 
 library(tensorflow)
-library(keras)
+library(keras3)
 
-images <- np$load("C:/Users/maris/OneDrive/Documents/resume and cv and cl/wgu/neural_networks/classification-images/images.npy")
-images_for_r <- py_to_r(images)
-class(images_for_r)
-dim(images_for_r) #128h x 128w with 3 color channels; 128 * 128 = 16,384 individual pixels
-summary(images_for_r[1,,,]) #first image pixel summary
- 
-
-
-
-```
-
-```{r image preview}
-
-indexed_labels <- as.data.frame(c("Label" = labels,
-                                  "Observation" = seq(1,length(labels), by =1) ))
-
-few_images_indexes <- indexed_labels[1:4,]
-few_images <- images_for_r[1:4,,,]
-
-few_normalized <- few_images / 255
-
-#install.packages("BiocManager")
-library(BiocManager)
-#BiocManager::install("EBImage")
-library(EBImage)
-
-subset_ready <- aperm(few_normalized, c(3, 2, 4, 1)) #switch order of dimensions- count, h, w, rgb
-image_stack <- Image(subset_ready, colormode = 'Color') #rgb
-
-display(image_stack, method = "raster", all = TRUE) #display
-text(x = 10,  y = 20,  labels = "Small-flowered Cranesbill", col = "yellow", cex = 1.2, adj = 0)
-
-############repeat for other classes
-few_images_indexes <- indexed_labels[1:4,]
-few_images <- images_for_r[1:4,,,]
-
-few_normalized <- few_images / 255
-
-
-subset_ready <- aperm(few_normalized, c(3, 2, 4, 1)) #switch order of dimensions- count, h, w, rgb
-image_stack <- Image(subset_ready, colormode = 'Color') #rgb
-
-display(image_stack, method = "raster", all = TRUE) #display
-text(x = 10,  y = 20,  labels = "Small-flowered Cranesbill", col = "yellow", cex = 1.2, adj = 0)
-
-
+photos[[1]]
+plot(photos[[1]])
+plot(photos[[23]])
 
 ```
 
 
 ```{r label distribution}
+summary(labels)
 
-distribution <- as.data.frame(table(labels))
-barplot(table(labels),
-        axes = T,
-        horiz = T)
+target_dist <- table(subset(labels,select=c(baseColour)))
+#uneven distribution of colors
+target_dist
+tab <- data.frame(target_dist)
+library(ggplot2)
+target_plot <- ggplot(tab, aes(x= baseColour, y= Freq))+
+  geom_col()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0.5))+
+  labs(title= "Target Color Label Distribution")
+library(plotly)
+ggplotly(target_plot)
 
-library(ggplot)
-ggplot(data = distribution, aes(x = Label, y = Freq)) +
-  geom_bar(stat = "identity", fill = "darkblue") +
-  #theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) + # Rotate and adjust alignment
-  labs(title = "Label Distribution")
+table(subset(labels,select=c(gender))) #mostly women and men clothing
+table(subset(labels,select=c(usage))) #mostly casual clothing
 
-#uneven distribution
+
 ```
 
 ```{r data augmentation}
-n_samples <- nrow(labels)
-n_categories <- nrow(unique(labels))
+n_samples <- nrow(labels) #9995 photos
+n_categories <- NROW(unique(labels$baseColour)) #46 colors
 
 #weights to match up to majority class, majority class has lowest weight
-weights <- n_samples / (n_samples * distribution$Freq) #outputs weights for each class
+weights <- n_samples / (n_samples * tab$Freq) #outputs weights for each class
 
 #make a list for keras
 class_weights <- vector()
@@ -126,6 +88,7 @@ for (i in 1:length(weights)) {
   # Assign the weight to that specific class index
   class_weights[[class_index]] <- weights[i]
 }
+
 ```
 
 

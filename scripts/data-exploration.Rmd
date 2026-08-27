@@ -16,7 +16,10 @@ install.package(imager)
 setwd()
 library(reticulate) #package to access python libraries
 use_python("C:/Windows/py.exe", required = T)
-np <- import("numpy", convert = F)
+
+
+
+
 library(dplyr)
 labels <- read.csv("../data/styles.csv",
                      header= T) %>%
@@ -42,8 +45,6 @@ dim(photos[[1]]) #3 channels RGB #60h 80w 1d 3channels
 
 summary(photos[[50]]) #not 8 bit pixelated, scale is 0 to 1
 
-library(tensorflow)
-library(keras3)
 
 photos[[1]]
 plot(photos[[1]])
@@ -195,4 +196,33 @@ NROW(unique(validation_labels$baseColour)) #37
 
 ```
 
+
+```{r modeling}
+
+reticulate::virtualenv_remove("r-tensorflow")
+reticulate::install_python(version = "3.10") #specific version for keras3
+keras3::install_keras(version = "3.10")
+
+# library(reticulate) #package to access python libraries
+# use_python("C:/Windows/py.exe", required = T)
+# library(tensorflow)
+library(keras3)
+#keras3::install_keras()
+
+
+
+
+transfer_model <- application_resnet50_v2(
+  weights = 'imagenet', # Load weights pre-trained on ImageNet.
+  input_shape = c(60, 80, 3),
+  include_top = FALSE # Do not include the ImageNet classifier at the top.
+)
+
+
+
+
+
+
+
+```
 

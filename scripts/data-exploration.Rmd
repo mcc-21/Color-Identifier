@@ -55,10 +55,29 @@ plot(photos[[23]])
 ```{r label distribution}
 summary(labels)
 
+nas <- filter(labels, is.na(labels$baseColour)) #2
+
+labels$baseColour[labels$id=="11293"] = "Blue" #visual imputation
+labels$baseColour[labels$id=="41347"] = "Red"
+
 target_dist <- table(subset(labels,select=c(baseColour)))
 #uneven distribution of colors
 target_dist
-tab <- data.frame(target_dist)
+
+#group up colors with less than 10 counts
+labels$baseColour <- gsub("Lime Green", "Green", labels$baseColour) #only 1 sample
+labels$baseColour <- gsub("Mushroom Brown", "Brown", labels$baseColour) #only 6 samples
+labels$baseColour <- gsub("Taupe", "Brown", labels$baseColour) #only 3 samples
+labels$baseColour <- gsub("Coffee Brown", "Brown", labels$baseColour) #only 9 samples
+labels$baseColour <- gsub("Rose", "Pink", labels$baseColour) #only 7 samples
+labels$baseColour <- gsub("Mauve", "Purple", labels$baseColour) #only 9 samples
+labels$baseColour <- gsub("Nude", "Brown", labels$baseColour) #only 4 samples
+labels$baseColour <- gsub("Sea Green", "Green", labels$baseColour) #only 8 samples
+
+target_dist <- table(subset(labels,select=c(baseColour)))
+
+
+tab <- datalabels1tab <- data.frame(target_dist)
 library(ggplot2)
 target_plot <- ggplot(tab, aes(x= baseColour, y= Freq))+
   geom_col()+
@@ -75,7 +94,7 @@ table(subset(labels,select=c(usage))) #mostly casual clothing
 
 ```{r data augmentation}
 n_samples <- nrow(labels) #9995 photos
-n_categories <- NROW(unique(labels$baseColour)) #46 colors
+n_categories <- NROW(unique(labels$baseColour)) #37 colors
 
 #weights to match up to majority class, majority class has lowest weight
 weights <- n_samples / (n_samples * tab$Freq) #outputs weights for each class
@@ -91,7 +110,89 @@ for (i in 1:length(weights)) {
 
 ```
 
+```{r data split}
+
+training_limit <- round(nrow(labels) * 0.75) #7496
+training_limit
+training_photos <- photos[1:training_limit]
+
+test_limit <- round(nrow(labels) * 0.25/2)
+test_photos <- photos[(training_limit+1): (training_limit+test_limit)]
+
+validation_photos <- photos[((training_limit+test_limit)+1):
+                              (nrow(labels))]
+image_id_order <- gsub("../data/images/","",images)
+image_id_order <- gsub(".jpg","",image_id_order)
+
+labels_by_id_order <-labels %>%
+  filter(id %in% image_id_order) %>% #so matchup is not rowwise
+  select(id, baseColour) %>%
+  arrange(match(id, image_id_order))
+
+training_labels <- labels_by_id_order[1:training_limit,]
+test_labels <- labels_by_id_order[(training_limit+1): (training_limit+test_limit),]
+validation_labels <- labels_by_id_order[((training_limit+test_limit)+1):
+                              (nrow(labels)),]
 
 
+
+
+```
+
+
+```{r check splits}
+
+table(training_labels$baseColour)
+NROW(unique(training_labels$baseColour)) #37
+
+table(test_labels$baseColour)
+NROW(unique(test_labels$baseColour)) #36
+
+table(validation_labels$baseColour)
+NROW(unique(validation_labels$baseColour)) #36
+
+
+```
+
+```{r redo partitioning}
+
+library(caret)
+
+set.seed(123)
+train_indices <- createDataPartition(labels_by_id_order$baseColour,
+                                     p = 0.75, list = FALSE)
+
+train_labels <- labels_by_id_order[train_indices, ] #visually checked that labels match
+train_photos <- photos[train_indices]
+
+remain_labels <- labels_by_id_order[-train_indices,]
+remain_photos <- photos[-train_indices]
+
+remain_indices <- createDataPartition(remain_labels$baseColour,
+                                     p = 0.50, list = FALSE)
+
+test_labels <- remain_labels[remain_indices,]
+test_photos <- remain_photos[remain_indices]
+
+validation_labels <- remain_labels[-remain_indices,]
+validation_photos <- remain_photos[-remain_indices]
+
+
+```
+
+```{r check splits again}
+
+
+table(train_labels$baseColour)
+NROW(unique(train_labels$baseColour)) #37
+
+table(test_labels$baseColour)
+NROW(unique(test_labels$baseColour)) #37
+
+table(validation_labels$baseColour)
+NROW(unique(validation_labels$baseColour)) #37
+
+
+```
 
 

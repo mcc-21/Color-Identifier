@@ -193,6 +193,37 @@ NROW(unique(test_labels$baseColour)) #37
 table(validation_labels$baseColour)
 NROW(unique(validation_labels$baseColour)) #37
 
+```
+
+```{r color label encoding}
+
+#ml may not understand text
+one_hot_encode <- function(labels, num_classes) {
+  # Create a matrix of zeros
+  encoded_labels <- matrix(0, nrow = length(labels), ncol = num_classes)
+  
+  # Set the appropriate index to 1 for each label
+  for (i in seq_along(labels)) {
+    encoded_labels[i, labels[i] + 1] <- 1
+  }
+  return(encoded_labels)
+}
+
+all_colors <- unique(labels$baseColour) 
+train_colors <- factor(train_labels$baseColour, levels = all_colors)
+train_numeric <- as.integer(train_colors) - 1
+train_y <- one_hot_encode(train_numeric, 37)
+
+valid_colors <- factor(validation_labels$baseColour, levels = all_colors)
+valid_numeric <- as.integer(valid_colors) - 1
+valid_y       <- one_hot_encode(valid_numeric, 37)
+
+
+test_colors <- factor(test_labels$baseColour, levels = all_colors)
+test_numeric <- as.integer(test_colors) - 1
+test_y       <- one_hot_encode(test_numeric, 37)
+
+
 
 ```
 
@@ -219,10 +250,47 @@ transfer_model <- application_resnet50_v2(
 )
 
 
+#change up the photos
+data_augmentation <- keras_model_sequential(
+  layers=list(
+        layer_input(shape = c(60L, 80L,3)) ,
+        layer_random_flip(mode = "horizontal") ,
+        layer_random_rotation(factor = 0.125,# rotation_range = 45 
+                              fill_mode = "constant",
+                              fill_value = 1.0) , #white background in images
+        layer_random_translation(height_factor = 0.1,
+                                 width_factor = 0.1,
+                                 fill_mode = "constant",
+                              fill_value = 1.0) ,
+        layer_random_zoom(height_factor = 0.15, width_factor = 0.15,
+                          fill_mode = "constant",
+                              fill_value = 1.0)))
 
+#no more training for transfer model
+transfer_model$trainable <- FALSE
+
+inputs <- layer_input(shape = c(60, 80, 3))
+
+output <- inputs %>%
+  data_augmentation() %>%
+    transfer_model(training = FALSE) %>%
+  layer_global_average_pooling_2d() %>% #takes in everything in comparison to max that looks for peaks
+  layer_dropout(.4) %>%                 #drop 40% of nodes
+  layer_dense(units= 37, activation = "softmax")
+  
+ model <- keras_model(inputs= inputs, outputs = output) 
+  
+```
+
+
+```{r}
+
+library(tfruns)
 
 
 
 
 ```
+
+
 

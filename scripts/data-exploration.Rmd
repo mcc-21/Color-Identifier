@@ -230,17 +230,16 @@ test_y       <- one_hot_encode(test_numeric, 37)
 
 ```{r modeling}
 
-reticulate::virtualenv_remove("r-tensorflow")
-reticulate::install_python(version = "3.10") #specific version for keras3
-keras3::install_keras(version = "3.10")
-
+#reticulate::virtualenv_remove("r-tensorflow")
+#reticulate::install_python(version = "3.10") #specific version for keras3
+#keras3::install_keras(version = "3.10")
 # library(reticulate) #package to access python libraries
 # use_python("C:/Windows/py.exe", required = T)
 # library(tensorflow)
 library(keras3)
 #keras3::install_keras()
 
-
+library(mlflow)
 
 
 transfer_model <- application_resnet50_v2(
@@ -266,6 +265,7 @@ data_augmentation <- keras_model_sequential(
                           fill_mode = "constant",
                               fill_value = 1.0)))
 
+#could log data augmentation
 #no more training for transfer model
 transfer_model$trainable <- FALSE
 
@@ -279,18 +279,146 @@ output <- inputs %>%
   layer_dense(units= 37, activation = "softmax")
   
  model <- keras_model(inputs= inputs, outputs = output) 
+summary(model)
+
+
+```
+
+
+```{r model setup}
+
+set.seed(425)
+#hyperparameters
+model %>% compile(optimizer = optimizer_adam(learning_rate = 0.001),
+                  loss = 'categorical_crossentropy',
+                  metrics = list(
+                    metric_categorical_accuracy(), 
+                    metric_precision(), 
+                    metric_recall(), 
+                    metric_f1_score(average = "macro")) #to see score per class
+)
+
+```
+
+
+```{r make photo array}
+# 1. Define standard operational targets
+img_height <- 60
+img_width  <- 80
+channels   <- 3
+
+# 2. Re-engineered keras3 compatible function
+process_and_resize <- function(img, index) {
+  img_dims <- dim(img)
   
+  # Step A: Explicitly handle the 60x80x1x3 structure safely
+  if (length(img_dims) == 4) {
+    slice <- array(0, dim = c(img_dims[1], img_dims[2], img_dims[4]))
+    for(c in 1:img_dims[4]) {
+      slice[, , c] <- img[, , 1, c]
+    }
+  } else {
+    slice <- img
+  }
+  
+  slice_dims <- dim(slice)
+  
+  # Step B: Get the underlying Python utils module from Keras
+  # This bypasses R's namespace export issues completely
+  py_keras_utils <- reticulate::import("keras.utils")
+  
+  # Step C: If grayscale (2D matrix), upgrade it to 3D
+  if (length(slice_dims) == 2) {
+    slice <- array(slice, dim = c(slice_dims[1], slice_dims[2], 1))
+    slice_dims <- dim(slice)
+  }
+  
+  # Step D: If spatial dimensions mismatch, use Keras backend Python utilities
+  if (slice_dims[1] != img_height || slice_dims[2] != img_width) {
+    # Convert matrix array to PIL image instance using Python backend
+    py_img <- py_keras_utils$array_to_img(slice)
+    # Resize utilizing Python's native toolset
+    py_img_resized <- py_img$resize(c(as.integer(img_width), as.integer(img_height)))
+    # Convert back to clean array matrix
+    resized_array <- py_keras_utils$img_to_array(py_img_resized)
+    return(resized_array)
+  }
+  
+  return(slice)
+}
+
+
+# Process Training Set
+num_train <- length(train_photos)
+train_photos_array <- array(0, dim = c(num_train, img_height, img_width, channels))
+
+for(i in 1:num_train) {
+  train_photos_array[i, , , ] <- process_and_resize(train_photos[[i]], i)
+}
+
+# Process Validation Set
+num_valid <- length(validation_photos)
+validation_photos_array <- array(0, dim = c(num_valid, img_height, img_width, channels))
+
+for(i in 1:num_valid) {
+  validation_photos_array[i, , , ] <- process_and_resize(validation_photos[[i]], i)
+}
+
+##test set
+num_test <- length(test_photos)
+test_photos_array <- array(0, dim = c(num_test, img_height, img_width, channels))
+
+for(i in 1:num_test) {
+  test_photos_array[i, , , ] <- process_and_resize(test_photos[[i]], i)
+}
+
 ```
 
 
-```{r}
+```{r model performance}
 
-library(tfruns)
-
-
+set.seed(123)
+performance_measures <- model %>% fit(
+                  train_photos_array, train_y,
+                  batch_size = 60,
+                  epochs = 25,
+                  validation_data = list(validation_photos_array, valid_y),
+                  class_weight = class_weights,
+                  callbacks = list(
+                      callback_early_stopping(
+                        monitor = 'val_loss',
+                        patience = 4,
+                        restore_best_weights = T)),
+                  verbose = 1 
+)
 
 
 ```
 
+
+```{r mlflow tracking}
+library(reticulate)
+py_install("mlflow", pip = TRUE) #ensure mlflow is installed in current python env
+Sys.setenv(MLFLOW_PYTHON_BIN = reticulate::py_config()$python)
+
+
+library(mlflow)
+mlflow_py <- import("mlflow")
+
+mlflow_py$set_experiment(experiment_name = "Transfer learning ResNetv50 model")
+
+run <- mlflow_py$start_run()
+
+  mlflow_py$log_param("backbone", "ResNet50v2")
+
+  # Loop exactly 10 times over your existing arrays
+  for (epoch in 1:10) {
+    mlflow_py$log_metric("training_categorical_accuracy",
+                performance_measures[["metrics"]][["categorical_accuracy"]][epoch],
+                step = as.integer(epoch))
+    mlflow_py$log_metric("training_loss", performance_measures[["metrics"]][["loss"]][epoch], step = as.integer(epoch))
+  }
+
+```
 
 

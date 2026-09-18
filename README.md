@@ -1,6 +1,6 @@
 # Color Identifier
 
-Convolutional neural networked backed color identifier API
+Convolutional neural network backed color identifier API
 
 ## Overview
 

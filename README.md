@@ -31,8 +31,6 @@ CNN based on ResNet50 v2 sources from Keras/Tensorflow.
 
 ## Results
 
-Show your performance screenshots here.
-
 ### Performance
 
 <img width="500" height="800" alt="performance-plot" src="https://github.com/user-attachments/assets/65fb7e67-3f91-4ae6-98da-30846288d2fa" />

@@ -86,6 +86,7 @@ target_plot <- ggplot(tab, aes(x= baseColour, y= Freq))+
   labs(title= "Target Color Label Distribution")
 library(plotly)
 ggplotly(target_plot)
+ggsave("target-color-distribution.png")
 
 table(subset(labels,select=c(gender))) #mostly women and men clothing
 table(subset(labels,select=c(usage))) #mostly casual clothing
@@ -417,7 +418,20 @@ run <- mlflow_py$start_run()
                 performance_measures[["metrics"]][["categorical_accuracy"]][epoch],
                 step = as.integer(epoch))
     mlflow_py$log_metric("training_loss", performance_measures[["metrics"]][["loss"]][epoch], step = as.integer(epoch))
-  }
+    mlflow_py$log_metric("training_precision", performance_measures[["metrics"]][["precision"]][epoch], step = as.integer(epoch))
+    mlflow_py$log_metric("validation_categorical_accuracy", performance_measures[["metrics"]][["val_categorical_accuracy"]][epoch], step = as.integer(epoch))
+    mlflow_py$log_metric("validation_precision", performance_measures[["metrics"]][["val_precision"]][epoch], step = as.integer(epoch))
+  mlflow_py$log_metric("validation_loss", performance_measures[["metrics"]][["val_loss"]][epoch], step = as.integer(epoch))
+ 
+    }
+
+```
+
+```{r export model for api}
+library(keras)
+save_model(model, filepath = "image-class-model.keras", include_optimizer = T)
+
+
 
 ```
 

@@ -50,8 +50,18 @@ CNN based on ResNet50 v2 sources from Keras/Tensorflow.
 
 ## Areas of Improvement
 
-1. Improve target color distribution by enhanced label grouping
+1. Improve target color distribution by stricter group labeling, and more even distribution of photos for classes.
    <img width="2100" height="2100" alt="target-color-distribution" src="https://github.com/user-attachments/assets/e0f742d1-a4e0-47a7-a1a3-4e89bc5c9400" />
-2. Check consistent color labeling among data splits
+2. Check consistent color labeling among data splits.
+3. Improve hyperparameter tuning and add more epochs.
+4. Add more data augmentation strategies to processing or improve those metrics.
+
+## Overall Project Workflow
+1. Data ingestion
+2. Data exploration/augmentation
+3. Model training
+4. Model evaluation
+5. mlflow tracking
+6. R Shiny App deployment
 
 

@@ -42,7 +42,7 @@ ui <- page_navbar(
           div(style= "height: 15px;"),
           value_box(                     #for output value
             title= "Colors Identified",
-            value = uiOutput("model_results"),
+            value = uiOutput("model_results"), #changes based on user input
             showcase = bs_icons::bs_icon("palette"),
             theme="primary"
           )

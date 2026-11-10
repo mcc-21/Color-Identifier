@@ -10,133 +10,94 @@ color_classes <- read.csv("color-categories.csv")
 
 #register_parser("multi", parser_multipart, fixed = "multipart/form-data")
 
+#* Image classification webpage
+#* @get /
+function() {
+  '
+<!DOCTYPE html>
+<html>
+<head>
+<title>Image Classifier</title>
+</head>
+<body style="font-family:Arial;text-align:center;padding:50px">
 
-#* @apiTitle Color Identifier
-#* @predict
-function(){
-  list(status = paste0("The purpose of this API is to assist individuals with color blindness."))
+<h2>Image Classification</h2>
+
+<input type="file" id="image" accept="image/*">
+
+<br><br>
+
+<button onclick="predict()">Predict</button>
+
+<h3 id="result"></h3>
+
+<script>
+async function predict() {
+
+  const file = document.getElementById("image").files[0];
+
+  if (!file) {
+    alert("Please select an image");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("image", file);
+
+  document.getElementById("result").innerHTML = "Predicting...";
+
+  const response = await fetch("/predict", {
+    method: "POST",
+    body: formData
+  });
+
+  const data = await response.json();
+
+  document.getElementById("result").innerHTML =
+    data.predictions.map(p =>
+      p.class + " : " + (p.probability * 100).toFixed(2) + "%"
+    ).join("<br>");
+}
+</script>
+
+</body>
+</html>
+'
 }
 
-
-#* Log incoming requests for debugging
-#* @filter logger
-function(req) {
-  cat(as.character(Sys.time()), "-", req$REQUEST_METHOD, req$PATH_INFO, "\n")
-  plumber::forward()
-}
-
-#* Predict the top 2 highest classes from a JPEG/PNG file upload
-#* @serializer json
-#* @param image:file 
+#* Predict image class
+#* @param image:file
 #* @post /predict
-function(req, res) {
+#* @serializer json
+function(image) {
   
-  # Get uploaded image
-  image <- req$files$image
+  img <- image_read(image[[1]])
   
-  # Check image upload
-  if (is.null(image)) {
-    res$status <- 400
-    return(list(
-      error = "Please upload an image"
-    ))
-  }
+  img <- image_resize(img, "60x80!")
   
-  # Get uploaded image path
-  image_path <- as.character(image$datapath)
+  img <- image_convert(img, colorspace = "sRGB")
   
-  # Check file existence
-  if (!file.exists(image_path)) {
-    res$status <- 400
-    return(list(
-      error = "Uploaded image not found"
-    ))
-  }
+  x <- image_data(img, channels = "rgb")
   
-  # Open image
-  img <- tryCatch({
-    
-    Image$open(image_path)
-    
-  }, error = function(e) {
-    
-    message("Image error: ", conditionMessage(e))
-    NULL
-    
-  })
+  x <- as.integer(x) / 255
   
-  if (is.null(img)) {
-    res$status <- 400
-    return(list(
-      error = "Invalid image file"
-    ))
-  }
+  x <- aperm(x, c(3, 2, 1))
   
-  # Load image into memory
-  img$load()
+  x <- array(x, dim = c(1, 60, 80, 3))
   
-  # Validate image format
-  image_format <- as.character(img$format)
+  # Model prediction
+  probabilities <- as.numeric(predict(color_identifier, x))
   
-  if (!image_format %in% c("JPEG", "PNG")) {
-    res$status <- 400
-    return(list(
-      error = "Only JPG, JPEG and PNG images are allowed"
-    ))
-  }
+  # Top 2
+  top2 <- order(probabilities, decreasing = TRUE)[1:2]
   
-  # Convert image to RGB
-  img <- img$convert("RGB")
-  
-  # Resize image
-  # Model input: (60, 80, 3)
-  # PIL expects (width, height)
-  img <- img$resize(tuple(60L, 80L))
-  
-  # Convert image to array
-  img_array <- tf$keras$utils$img_to_array(img)
-  
-  # Add batch dimension
-  img_array <- np$expand_dims(
-    img_array,
-    axis = 0L
+  list(
+    predictions = lapply(top2, function(i) {
+      list(
+        class = color_classes[i],
+        probability = probabilities[i]
+      )
+    })
   )
-  
-  # Normalize image
-  # Use only if normalization was applied during training
-  img_array <- img_array / 255.0
-  
-  # Predict image
-  predictions <- color_identifier$predict(img_array)
-  
-  # Convert predictions to R vector
-  probs <- as.numeric(
-    predictions$numpy()[1L, ]
-  )
-  
-  # Validate predictions
-  if (length(probs) != 37 ||
-      length(color_classes) != 37) {
-    
-    res$status <- 500
-    
-    return(list(
-      error = "Model must return 37 class predictions"
-    ))
-  }
-  
-  # Get top 2 predicted classes
-  top2 <- order(
-    probs,
-    decreasing = TRUE
-  )[1:2]
-  
-  # Extract only class labels
-  output <- unname(color_classes[top2])
-  
-  # Return results
-  return(list(
-    status = "success",
-    predictions = output
-  ))
 }
+

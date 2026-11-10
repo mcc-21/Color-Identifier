@@ -5,8 +5,8 @@ library(reticulate)
 library(keras3)
 library(tensorflow)
 
-model <- load_model("../scripts/image-class-model.keras")
-color_classes <- read.csv("../scripts/color-categories.csv")
+model <- load_model("image-class-model.keras")
+color_classes <- read.csv("color-categories.csv")
 
 
 #user interface

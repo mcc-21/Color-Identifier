@@ -1,11 +1,13 @@
 library(shiny)
 library(bslib)
+library(bsicons)
 
 #user interface
 ui <- page_navbar(
   title= "Color Identifier",
   theme=bs_theme(version = 5) |>
     bs_add_variables(
+      #"navbar-nav-margin-x" = "auto", #center main tabs
       "navbar-bg" = "#2B2B2B",#banner background
       "navbar-light-color" = "dodgerblue",
       "navbar-light-brand-color" = "dodgerblue",
@@ -20,18 +22,33 @@ ui <- page_navbar(
            align = "right",
            nav_item(tags$a("GitHub", href="https:http://www.github.com/mcc-21"))
            ),
-  card(
-    card_header("Color Identification"),
-    "Upload image here"
-  ),
-  value_box(
-    title = "Colors detected",
-    value = "Color is pink."
-  )
-  
-  
-  
-)
+  nav_panel(
+    "Color Identification",
+    layout_column_wrap(
+      width=1/3,
+      fixed_width = T,
+      div(fileInput(inputId = "image_loaded",
+                    label = "Upload image here", #FOR NULL
+                    placeholder = "Upload image here",
+                    multiple = F,
+                    accept = c("image/jpeg",
+                               "image/png",
+                               "image/jpg",
+                               ".jpeg",
+                               ".jpg",
+                               ".png"
+                               )
+                    ),
+          div(style= "height: 15px;"),
+          value_box(                     #for output value
+            title= "Colors Identified",
+            value = uiOutput("model_results"),
+            showcase = bs_icons::bs_icon("palette"),
+            theme="primary"
+          )
+      )
+  ) 
+))
 
 
 #server logic

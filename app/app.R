@@ -77,9 +77,9 @@ server <- function(input, output, session){
     print(paste0("Overall predictions: ", predictions))
     top_classes <- order(predictions, decreasing = T)[1:2] #Highest 2 predictions
     print(paste0("The top 2 predicted colors are: ", top_classes))
-    color_1 <- color_classes[top_classes[1]]
+    color_1 <- color_classes$x[top_classes[1]]
     probability_1 <- round(predictions[top_classes[1]] * 100, 1)
-    color_2 <- color_classes[top_classes[2]]
+    color_2 <- color_classes$x[top_classes[2]]
     probability_2 <- round(predictions[top_classes[2]] * 100, 1)
     
     HTML(paste0(
